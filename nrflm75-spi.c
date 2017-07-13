@@ -245,6 +245,7 @@ uint16_t lm75_register16 (uint8_t addr_reg)
 	I2C->CR2 |= I2C_CR2_STOP;  // STOP bit
 	/* DRを続けて読むが、この時エラッタではSTOPとN-1の間は割り込みを全てマスクしないとデータ化けるとある */
 	ret = (uint16_t)(I2C->DR)<<8;  // N-1
+	i2c_wait(0x07, I2C_SR1_RXNE);  // シフトレジスタ->DR 受信データ転送まち
 	ret += (uint16_t)(I2C->DR);  // N
 
 	i2c_wait(0x09, I2C_SR3_BUSY);  //BUSY 通信終了まち
@@ -378,8 +379,8 @@ void main(void)
 		/* データ格納 送信 */
 		if (pid > 0xfe) pid = 0;  // 同一パケット送信対策
 		data[0] = Node_ID;  //  ノードID
-		data[1] = (uint8_t)(ret>>8);
-		data[2] = (uint8_t)ret;
+		data[1] = (uint8_t)((ret>>8) & 0xff);
+		data[2] = (uint8_t)(ret & 0xff);
 		data[3] = temph;
 		data[4] = pid++;
 		mirf_send(data);
