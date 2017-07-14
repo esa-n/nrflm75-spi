@@ -66,11 +66,15 @@ uint8_t mirf_read_register(uint8_t reg)
 void mirf_address(uint8_t reg, uint8_t value)
 /* MiRF アドレス設定 */
 {
-	uint8_t addr[] = { 0xF0, 0xFA, 0x12, 0x88, 0x64 };
+	uint8_t addr[3][5] = {
+        { 0xF0, 0xFA, 0x12, 0x88, 0x64 },
+        { 0xE7, 0xE7, 0xE7, 0xE7, 0xE7 },  // TX/P0 Default
+        { 0xC2, 0xC2, 0xC2, 0xC2, 0xC2 },  // P1 Default
+    };
 	
 	mirf_CSN_lo;
 	spi_fast_shift(W_REGISTER | (REGISTER_MASK & reg));
-	spi_transmit_sync(value + addr,5);
+	spi_transmit_sync(addr[value] ,5);
 	mirf_CSN_hi;
 }
 
