@@ -207,10 +207,10 @@ void timeout_timer (uint16_t t)
 }
 
 /* タイムアウト付きレジスタセットまち*/
-uint8_t i2c_wait (uint8_t reg, uint8_t val)
+uint8_t i2c_wait (volatile uint8_t *reg, uint8_t val)
 {
 	timeout_timer(600);  // タイマースタート 300usec (300x2)
-	while (!(*(volatile uint8_t *)(0x5210 + reg) & val))  // レジスタセットまち
+	while (!(*reg & val))  // レジスタセットまち
 	{
 		if ((TIM2->CR1 & TIM2_CR1_CEN) == 0)  // タイムアウト
 			goto err;
@@ -226,29 +226,29 @@ uint16_t lm75_register16 (uint8_t addr_reg)
 	uint8_t null;
 	uint16_t ret;
 	I2C->CR2 |= I2C_CR2_START;  // START bit
-	if (i2c_wait(0x07, I2C_SR1_SB)) goto err;  // SBセットまち
+	if (i2c_wait(&I2C->SR1, I2C_SR1_SB)) goto err;  // SBセットまち
 	I2C->DR = (LM75_ADDRESS<<1) + 0;  // Slabe ADDR + Write
-	if (i2c_wait(0x07, I2C_SR1_ADDR)) goto err;  // ADDRセットまち
+	if (i2c_wait(&I2C->SR1, I2C_SR1_ADDR)) goto err;  // ADDRセットまち
 	null = I2C->SR3;
-	if (i2c_wait(0x07, I2C_SR1_TXE)) goto err;  // TXEセットまち
+	if (i2c_wait(&I2C->SR1, I2C_SR1_TXE)) goto err;  // TXEセットまち
 	I2C->DR = addr_reg;
-	if (i2c_wait(0x07, I2C_SR1_BTF)) goto err;  // BTFまち
+	if (i2c_wait(&I2C->SR1, I2C_SR1_BTF)) goto err;  // BTFまち
 	I2C->CR2 |= I2C_CR2_STOP;  // STOP bit
 	
 	I2C->CR2 |= I2C_CR2_START;  // START bit
-	if (i2c_wait(0x07, I2C_SR1_SB)) goto err;  // SBセットまち
+	if (i2c_wait(&I2C->SR1, I2C_SR1_SB)) goto err;  // SBセットまち
 	I2C->DR = (LM75_ADDRESS<<1) + 1;  // Slabe ADDR + Read
-	if (i2c_wait(0x07, I2C_SR1_ADDR)) goto err;  // ADDRセットまち
+	if (i2c_wait(&I2C->SR1, I2C_SR1_ADDR)) goto err;  // ADDRセットまち
 	null = I2C->SR3;
 	/* BTFセットまち BTFはDR(N-1)とシフトレジスタ(N)が一杯になるとセットされる N-1とNのデータは合計２個のタイミング*/
-	if (i2c_wait(0x07, I2C_SR1_BTF)) goto err;
+	if (i2c_wait(&I2C->SR1, I2C_SR1_BTF)) goto err;
 	I2C->CR2 |= I2C_CR2_STOP;  // STOP bit
 	/* DRを続けて読むが、この時エラッタではSTOPとN-1の間は割り込みを全てマスクしないとデータ化けるとある */
 	ret = (uint16_t)(I2C->DR)<<8;  // N-1
-	i2c_wait(0x07, I2C_SR1_RXNE);  // シフトレジスタ->DR 受信データ転送まち
+	i2c_wait(&I2C->SR1, I2C_SR1_RXNE);  // シフトレジスタ->DR 受信データ転送まち
 	ret += (uint16_t)(I2C->DR);  // N
 
-	i2c_wait(0x09, I2C_SR3_BUSY);  //BUSY 通信終了まち
+	i2c_wait(&I2C->SR3, I2C_SR3_BUSY);  //BUSY 通信終了まち
 	return ret;
 err:
 	I2C->CR2 |= I2C_CR2_STOP;  // STOP bit
