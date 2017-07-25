@@ -341,6 +341,7 @@ void main(void)
     // これをしないと未使用入力ポートが暴れてHALT中電流増加
     GPIOC->DDR |= (1<<3);
     GPIOD->DDR |= ( (1<<2) | (1<<5) | (1<<6) );
+    GPIOB->DDR |= ( (1<<4) | (1<<5) );  // 出力にしないとI2Cペリフェラルが復帰しない。
 
 	/* waitタイマー nrf初期化 */
 	TIM2_Wait_Init();
@@ -369,7 +370,9 @@ void main(void)
 		
 		/* 温度取得 */
 		wait_ms(100);  //センサーが起きるの非常に遅い
+        I2C->CR1 |= I2C_CR1_PE;  //  I2CペリフェラルON
 		ret = lm75_register16(LM75_TEMP_REGISTER);
+        I2C->CR1 &= ~I2C_CR1_PE;  // I2CペリフェラルOFF
 		/* バッテリー電圧取得 */
 		ADC1->CSR &= ~ADC1_CSR_EOC;  //  フラグクリア
 		temph = ADC1->DRH;
