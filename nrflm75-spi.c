@@ -252,7 +252,7 @@ uint16_t lm75_register16 (uint8_t addr_reg)
 	return ret;
 err:
 	I2C->CR2 |= I2C_CR2_STOP;  // STOP bit
-	return 0;
+	return 1;  // 下位5bitは使わないのでエラーフラグに使用
 }
 
 /* AWU割り込み */
@@ -381,9 +381,18 @@ void main(void)
 
 		/* データ格納 送信 */
 		if (pid > 0xfe) pid = 0;  // 同一パケット送信対策
-		data[0] = Node_ID;  //  ノードID
-		data[1] = (uint8_t)((ret>>8) & 0xff);
-		data[2] = (uint8_t)(ret & 0xff);
+		if ((ret & 0x1f) == 0)  // 機器エラー判定
+        {
+            /* 異常なし */
+            data[0] = Node_ID;  //  ノードID
+            data[1] = (uint8_t)((ret>>8) & 0xff);
+            data[2] = (uint8_t)(ret & 0xff);
+        } else {
+            /* 機器エラー */
+            data[0] = 0xe0;  // 機器エラーはノードID:0xe0とする
+            data[1] = Node_ID;  // エラーノードID
+            data[2] = 0b00000001;  // エラーコード1 温度取得異常
+        }
 		data[3] = temph;
 		data[4] = pid++;
 		mirf_send(data);
