@@ -366,6 +366,8 @@ void main(void)
 		wait_ms(50);
 		mirf_CSN_hi;  // nrf24 CSN
 		mirf_config();
+        mirf_write_register(SETUP_RETR,0x2f + ((pid & 7) << 4) );  // 自動再送遅延をノードにより変化させる
+        pid += Node_ID;
 		TX_POWERUP;  // 早めに動かさないとパワーダウンから起きない
 		
 		/* 温度取得 */
