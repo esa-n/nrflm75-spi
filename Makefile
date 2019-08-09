@@ -1,20 +1,57 @@
-TARGET = nrflm75-spi
-OBJECT = rf24-spi
+ 
+export PATH := $(PATH):$(HOME)/local/sdcc/bin
 
+MCU  = stm8s003f3
 ARCH = stm8
-LIBDIR = ~/stm8/library
-SDCC = sdcc
-CFLAGS = -c -l$(ARCH) -m$(ARCH)
-LFLAGS = -l$(ARCH) -m$(ARCH) --out-fmt-ihx
-OBJGROUP = $(TARGET).rel $(OBJECT:%=%.rel)
 
-all: $(OBJGROUP)
-	$(SDCC) $(LFLAGS) $(OBJGROUP)
+F_CPU   ?= 2000000
+TARGET  ?= nrflm75-spi.ihx
 
-clean:
-	rm -f *.ihx *.rel *.map *.rst *.sym *.cdb *.lk *.asm *.lst
+LIBDIR   = /usr/local/share/sdcc/lib/stm8
+
+#SRCS    := $(wildcard *.c $(LIBDIR)/*.c)
+#ASRCS   := $(wildcard *.s $(LIBDIR)/*.s)
+SRCS    := $(wildcard *.c)
+ASRCS   := $(wildcard *.s)
+
+OBJS     = $(SRCS:.c=.rel)
+OBJS    += $(ASRCS:.s=.rel)
+
+CC       = sdcc
+LD       = sdld
+AS       = sdasstm8
+OBJCOPY  = sdobjcopy
+ASFLAGS  = -plosgff
+CFLAGS   = -m$(ARCH) -p$(MCU) --std-sdcc99 -I$(LIBDIR)
+#CFLAGS  += -DF_CPU=$(F_CPU)UL -I. -I$(LIBDIR)
+#CFLAGS  += --stack-auto --noinduction --use-non-free
+## Disable lospre (workaround for bug 2673)
+#CFLAGS  += --nolospre
+## Extra optimization rules - use with care
+#CFLAGS  += --peep-file $(LIBDIR)/util/extra.def
+LDFLAGS  = -m$(ARCH) -l$(ARCH) --out-fmt-ihx
+
+all: $(TARGET) size
+
+$(TARGET): $(OBJS)
+	$(CC) $(LDFLAGS) $(OBJS) -o $@
 
 %.rel: %.c
-	$(SDCC) $(CFLAGS) $<
-%.rel: $(LIBDIR)/%.c
-	$(SDCC) $(CFLAGS) $<
+	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
+
+%.rel: %.s
+	$(AS) $(ASFLAGS) $<
+
+size:
+	@$(OBJCOPY) -I ihex --output-target=binary $(TARGET) $(TARGET).bin
+	@echo "----------"
+	@echo "Image size:"
+	@stat -L -c %s $(TARGET).bin
+
+flash: $(TARGET)
+	stm8flash -c stlinkv2 -p $(MCU) -w $(TARGET)
+
+clean:
+	rm -f *.map *.asm *.rel *.ihx *.o *.sym *.lk *.lst *.rst *.cdb *.bin
+
+.PHONY: clean all flash
